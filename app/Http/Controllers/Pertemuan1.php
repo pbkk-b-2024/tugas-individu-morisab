@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Route as RouteFacade;
 use App\Models\Number;
 
 class Pertemuan1 extends Controller
@@ -59,4 +60,58 @@ class Pertemuan1 extends Controller
         return view('components.param-param2',compact('data'));
     }
 
+    public function namedRoute()
+    {
+        $routes = RouteFacade::getRoutes();
+        $routeInfo = [];
+
+        foreach ($routes as $route) {
+            if ($route->getName()) {
+                $name = $route->getName();
+                $uri = $route->uri();
+                $routeInfo[] = [
+                    'name' => $name,
+                    'uri' => $uri,
+                ];
+            }
+        }
+
+        return view('components.named-route', ['routeInfo' => $routeInfo]);
+    }
+
+    public function groupedRoute()
+    {
+        $routes = RouteFacade::getRoutes();
+        $groupedRoutes = [];
+
+        foreach ($routes as $route) {
+            $name = $route->getName();
+            $uri = $route->uri();
+            $action = $route->getAction();
+
+            $prefix = $this->getPrefixFromAction($action);
+            if ($prefix) {
+                if (!isset($groupedRoutes[$prefix])) {
+                    $groupedRoutes[$prefix] = [];
+                }
+                if ($name) {
+                    $groupedRoutes[$prefix][] = [
+                        'name' => $name,
+                        'uri' => $uri,
+                    ];
+                }
+            }
+        }
+
+        return view('components.grouped-route', ['groupedRoutes' => $groupedRoutes]);
+    }
+
+    private function getPrefixFromAction($action)
+    {
+        $prefix = '';
+        if (isset($action['prefix'])) {
+            $prefix = $action['prefix'];
+        }
+        return $prefix;
+    }
 }
