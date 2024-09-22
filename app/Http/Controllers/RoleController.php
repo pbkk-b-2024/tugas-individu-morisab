@@ -3,62 +3,99 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Role;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
 
 class RoleController extends Controller
 {
-
-    public function index(Request $request)
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index()
     {
-        $search = $request->input('search');
-        
-        $roles = Role::when($search, function ($query, $search) {
-            return $query->where('name', 'like', "%{$search}%");
-        })->paginate(10);
-
-        return view('roles.index', compact('roles', 'search'));
+        $title = "user Roles";
+        $roles = Role::with('permissions')->get();
+        $permissions = Permission::get();
+        return view('roles',compact(
+            'title','roles','permissions'
+        ));
     }
 
-    public function create()
-    {
-        return view('roles.create');
-    }
-
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
     public function store(Request $request)
     {
-        $validatedData = $request->validate([
-            'name' => 'required|string|max:255|unique:roles',
+        $this->validate($request,[
+            'role'=>'required|max:100',
+            'permission'=>'required'
         ]);
-
-        Role::create($validatedData);
-
-        return redirect()->route('roles.index')->with('success', 'Role created successfully');
+        $role = Role::create(['name' => $request->role]);
+        $permissions = $request->permission;
+        $role->syncPermissions($permissions);
+        $notification = array(
+            'message'=>"Role Created Successfully!!",
+            'alert-type'=>"success"
+        );
+        return back()->with($notification);
     }
 
-    public function show(Role $role)
+    /**
+     * Display the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function show($id)
     {
-        return view('roles.show', compact('role'));
+        //
     }
 
-    public function edit(Role $role)
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request)
     {
-        return view('roles.edit', compact('role'));
-    }
-
-    public function update(Request $request, Role $role)
-    {
-        $validatedData = $request->validate([
-            'name' => 'required|string|max:255|unique:roles,name,' . $role->id,
+        $this->validate($request,[
+            'role'=>'required|max:100',
+            'permission'=>'required'
         ]);
-
-        $role->update($validatedData);
-
-        return redirect()->route('roles.index')->with('success', 'Role updated successfully');
+        $role = Role::find($request->id);
+        $role->update([
+            'name'=>$request->role,
+        ]);
+        $permissions = $request->permission;
+        $role->syncPermissions($permissions);
+        $notification = array(
+            'message'=>"Role Updated Successfully!!",
+            'alert-type'=>"success"
+        );
+        return back()->with($notification);
     }
 
-    public function destroy(Role $role)
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy(Request $request)
     {
+        $role = Role::find($request->id);
         $role->delete();
-        return redirect()->route('roles.index')->with('success', 'Role deleted successfully');
+        $notification = array(
+            'message'=>"Role deleted successfully!!.",
+            'alert-type'=>'success'
+        );
+        return back()->with($notification);
     }
 }

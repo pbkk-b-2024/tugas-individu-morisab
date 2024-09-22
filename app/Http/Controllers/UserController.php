@@ -2,78 +2,204 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
-use App\Models\Role;
 use App\Models\User;
+use Illuminate\Http\Request;
+use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
 {
-    public function index(Request $request)
+    /**
+     * Display a listing of the resource.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function index()
     {
-        $search = $request->input('search');
-
-        $users = User::when($search, function ($query, $search) {
-            return $query->where('name', 'like', "%{$search}%");
-        })->paginate(10);
-
-        return view('users.index', compact('users', 'search'));
+        $title = "users";
+        $users  = User::with('roles')->get();
+        $roles = Role::get();
+        return view('users',compact(
+            'title','users','roles'
+        ));
     }
 
-    public function create()
-    {
-        $roles = Role::all();
-        return view('users.create', compact('roles'));
+
+    /**
+     * Store a newly created resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function store(Request $request){
+        $this->validate($request,[
+            'name'=>'required|max:100',
+            'email'=>'required|email',
+            'role'=>'required',
+            'password'=>'required|confirmed|max:200',
+            'avatar'=>'file|image|mimes:jpg,jpeg,gif,png',
+        ]);
+        $imageName = null;
+        if($request->hasFile('avatar')){
+            $imageName = time().'.'.$request->avatar->extension();
+            $request->avatar->move(public_path('storage/users'), $imageName);
+        }
+        $user = User::create([
+            'name'=>$request->name,
+            'email'=>$request->email,
+            'password'=>Hash::make($request->password),
+            'avatar'=>$imageName
+        ]);
+        $user->assignRole($request->role);
+        $notification =array(
+            'message'=>"User has been added!!!",
+            'alert-type'=>'success'
+        );
+        return back()->with($notification);
     }
 
-    public function store(Request $request)
+    /**
+     * Display currently authenticated user.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function profile()
     {
-        $validatedData = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-            'role_id' => 'required|exists:roles,id',
+        $title = "profile";
+        $roles = Role::get();
+        return view('profile',compact(
+            'title','roles'
+        ));
+    }
+
+    /**
+     * update resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function updateProfile(Request $request)
+    {
+        $this->validate($request,[
+            'name'=>'required|max:100',
+            'email'=>'required|email',
+            'avatar'=>'file|image|mimes:jpg,jpeg,gif,png',
+        ]);
+        if($request->hasFile('avatar')){
+            $imageName = time().'.'.$request->avatar->extension();
+            $request->avatar->move(public_path('storage/users'), $imageName);
+        }else{
+            $imageName = auth()->user()->avatar;
+        }
+        auth()->user()->update([
+            'name'=>$request->name,
+            'email'=>$request->email,
+            'avatar'=>$imageName,
+        ]);
+        $notification =array(
+            'message'=>"User profile has been updated !!!",
+            'alert-type'=>'success'
+        );
+        return back()->with($notification);
+    }
+
+    /**
+     * Update current user password.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function updatePassword(Request $request)
+    {
+        $this->validate($request,[
+            'old_password'=>'required',
+            'password'=>'required|max:200|confirmed',
         ]);
 
-        User::create([
-            'name' => $validatedData['name'],
-            'email' => $validatedData['email'],
-            'password' => bcrypt($validatedData['password']),
-            'role_id' => $validatedData['role_id'],
+        if (password_verify($request->old_password,auth()->user()->password)){
+            auth()->user()->update(['password'=>Hash::make($request->password)]);
+            $notification = array(
+                'message'=>"User password updated successfully!!!",
+                'alert-type'=>'success'
+            );
+            $logout = auth()->logout();
+            return back()->with($notification,$logout);
+        }else{
+            $notification = array(
+                'message'=>"Old Password do not match!!!",
+                'alert-type'=>'danger'
+            );
+            return back()->with($notification);
+        }
+    }
+
+    /**
+     * Display the specified resource.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function show($id)
+    {
+        //
+    }
+
+    /**
+     * Update the specified resource in storage.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function update(Request $request)
+    {
+        $this->validate($request,[
+            'name'=>'required|max:100',
+            'email'=>'required|email',
+            'password'=>'required|confirmed|max:200',
+            'avatar'=>'file|image|mimes:jpg,jpeg,gif,png',
         ]);
-
-        return redirect()->route('users.index')->with('success', 'User created successfully');
-    }
-
-    public function show(string $id)
-    {
-        $user = User::findOrFail($id);
-        return view('users.show', compact('user'));
-    }
-
-    public function edit($id)
-    {
-        $user = User::find($id);
-        $roles = Role::all();
-        return view('users.edit', compact('user', 'roles'));
-    }
-
-    public function update(Request $request, $id)
-    {
-        $validatedData = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users,email,' . $id,
-            'role_id' => 'required|exists:roles,id',
+        $imageName = auth()->user()->avatar;
+        if($request->hasFile('avatar')){
+            $imageName = time().'.'.$request->avatar->extension();
+            $request->avatar->move(public_path('storage/users'), $imageName);
+        }
+        $user = User::find($request->id);
+        $user->update([
+            'name'=>$request->name,
+            'email'=>$request->email,
+            'password'=>Hash::make($request->password),
+            'avatar'=>$imageName
         ]);
-
-        $user = User::find($id);
-        $user->update($validatedData);
-
-        return redirect()->route('users.index')->with('success', 'User updated successfully');
+        $user->assignRole($request->role);
+        $notification =array(
+            'message'=>"User has been updated!!!",
+            'alert-type'=>'success'
+        );
+        return back()->with($notification);
     }
 
-    public function destroy($id)
+    /**
+     * Remove the specified resource from storage.
+     *
+     * @param  \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\Response
+     */
+    public function destroy(Request $request)
     {
-        User::destroy($id);
-        return redirect()->route('users.index')->with('success', 'User deleted successfully');
+        $user = User::find($request->id);
+        if($user->hasRole('super-admin')){
+            $notification=array(
+                'message'=>"Super admin cannot be deleted",
+                'alert-type'=>'warning',
+            );
+            return back()->with($notification);
+        }
+        $user->delete();
+        $notification=array(
+            'message'=>"User has been deleted",
+            'alert-type'=>'success',
+        );
+        return back()->with($notification);
     }
 }
