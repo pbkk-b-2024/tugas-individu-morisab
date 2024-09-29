@@ -18,11 +18,13 @@ class UserSeeder extends Seeder
     public function run()
     {
 
-       $user = User::create([
+        $user = User::create([
             'name' => "Budi",
             'email' => "budi@admin.com",
             'password' => Hash::make('admin'),
+            'api_token' => Str::random(60),
         ]);
+        
         $user->assignRole('super-admin');
     }
 }

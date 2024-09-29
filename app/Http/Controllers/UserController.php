@@ -37,18 +37,11 @@ class UserController extends Controller
             'email'=>'required|email',
             'role'=>'required',
             'password'=>'required|confirmed|max:200',
-            'avatar'=>'file|image|mimes:jpg,jpeg,gif,png',
         ]);
-        $imageName = null;
-        if($request->hasFile('avatar')){
-            $imageName = time().'.'.$request->avatar->extension();
-            $request->avatar->move(public_path('storage/users'), $imageName);
-        }
         $user = User::create([
             'name'=>$request->name,
             'email'=>$request->email,
             'password'=>Hash::make($request->password),
-            'avatar'=>$imageName
         ]);
         $user->assignRole($request->role);
         $notification =array(
@@ -83,18 +76,11 @@ class UserController extends Controller
         $this->validate($request,[
             'name'=>'required|max:100',
             'email'=>'required|email',
-            'avatar'=>'file|image|mimes:jpg,jpeg,gif,png',
         ]);
-        if($request->hasFile('avatar')){
-            $imageName = time().'.'.$request->avatar->extension();
-            $request->avatar->move(public_path('storage/users'), $imageName);
-        }else{
-            $imageName = auth()->user()->avatar;
-        }
+
         auth()->user()->update([
             'name'=>$request->name,
             'email'=>$request->email,
-            'avatar'=>$imageName,
         ]);
         $notification =array(
             'message'=>"User profile has been updated !!!",
@@ -157,19 +143,12 @@ class UserController extends Controller
             'name'=>'required|max:100',
             'email'=>'required|email',
             'password'=>'required|confirmed|max:200',
-            'avatar'=>'file|image|mimes:jpg,jpeg,gif,png',
         ]);
-        $imageName = auth()->user()->avatar;
-        if($request->hasFile('avatar')){
-            $imageName = time().'.'.$request->avatar->extension();
-            $request->avatar->move(public_path('storage/users'), $imageName);
-        }
         $user = User::find($request->id);
         $user->update([
             'name'=>$request->name,
             'email'=>$request->email,
             'password'=>Hash::make($request->password),
-            'avatar'=>$imageName
         ]);
         $user->assignRole($request->role);
         $notification =array(

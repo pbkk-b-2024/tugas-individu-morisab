@@ -114,3 +114,7 @@ Route::group(['middleware'=>['auth']],function (){
 Route::get('/', function () {
     return redirect()->route('dashboard');
 });
+
+Route::get('/api-docs', function () {
+    return view('api-docs');
+});
