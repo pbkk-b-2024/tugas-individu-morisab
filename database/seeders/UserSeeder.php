@@ -23,6 +23,7 @@ class UserSeeder extends Seeder
             'email' => "budi@admin.com",
             'password' => Hash::make('admin'),
             'api_token' => Str::random(60),
+            'avatar' => 'avatar-01.jpg',
         ]);
         
         $user->assignRole('super-admin');

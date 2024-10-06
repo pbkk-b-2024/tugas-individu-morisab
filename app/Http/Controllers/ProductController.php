@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use App\Notifications\StockAlert;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Storage;
 
 class ProductController extends Controller
 {
@@ -82,7 +83,13 @@ class ProductController extends Controller
             'price'=>'required|min:1',
             'discount'=>'nullable',
             'description'=>'nullable|max:200',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
+        $imageName = null;
+        if ($request->hasFile('image')) {
+            $imageName = time() . '.' . $request->image->getClientOriginalExtension();
+            $request->image->move(public_path('img/product'), $imageName);
+        }
         $price = $request->price;
         if($request->discount >0){
            $price = $request->discount * $request->price;
@@ -92,6 +99,7 @@ class ProductController extends Controller
             'price'=>$price,
             'discount'=>$request->discount,
             'description'=>$request->description,
+            'image' => $imageName,
         ]);
         $notification=array(
             'message'=>"Product has been added",
@@ -131,7 +139,19 @@ class ProductController extends Controller
             'price'=>'required',
             'discount'=>'nullable',
             'description'=>'nullable|max:200',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
         ]);
+
+        if ($request->hasFile('image')) {
+            // Hapus gambar lama jika ada
+            if ($product->image) {
+                Storage::delete('img/product/' . $product->image);
+            }
+    
+            // Upload gambar baru
+            $imageName = time() . '.' . $request->image->getClientOriginalExtension();
+            $request->image->move(public_path('img/product'), $imageName);
+        }
         
         $price = $request->price;
         if($request->discount >0){
@@ -142,6 +162,7 @@ class ProductController extends Controller
             'price'=>$price,
             'discount'=>$request->discount,
             'description'=>$request->description,
+            'image' => $imageName,
         ]);
         $notification=array(
             'message'=>"Product has been updated",
