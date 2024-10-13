@@ -4,160 +4,84 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
-use Spatie\Permission\Models\Role;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
     public function index()
     {
-        $title = "users";
-        $users  = User::with('roles')->get();
-        $roles = Role::get();
-        return view('users',compact(
-            'title','users','roles'
-        ));
-    }
-
-    public function store(Request $request){
-        $this->validate($request,[
-            'name'=>'required|max:100',
-            'email'=>'required|email',
-            'role'=>'required',
-            'password'=>'required|confirmed|max:200',
-            'avatar'=>'file|image|mimes:jpg,jpeg,gif,png',
-        ]);
-        $imageName = null;
-        if($request->hasFile('avatar')){
-            $imageName = time().'.'.$request->avatar->extension();
-            $request->avatar->move(public_path('storage/users'), $imageName);
-        }else{
-            $imageName = auth()->user()->avatar;
-        }
-        $user = User::create([
-            'name'=>$request->name,
-            'email'=>$request->email,
-            'password'=>Hash::make($request->password),
-        ]);
-        $user->assignRole($request->role);
-        $notification =array(
-            'message'=>"User has been added!!!",
-            'alert-type'=>'success'
-        );
-        return back()->with($notification);
-    }
-
-    public function profile()
-    {
-        $title = "profile";
-        $roles = Role::get();
-        return view('profile',compact(
-            'title','roles'
-        ));
-    }
-
-    public function updateProfile(Request $request)
-    {
-        $this->validate($request, [
-            'name' => 'required|max:100',
-            'email' => 'required|email',
-            'avatar' => 'nullable|image|mimes:jpg,jpeg,gif,png|max:2048',
-        ]);
-
-        $user = auth()->user();
-
-        if ($request->hasFile('avatar')) {
-            $avatar = $request->file('avatar');
-            $avatarName = time() . '.' . $avatar->getClientOriginalExtension();
-            $avatar->storeAs('public/users', $avatarName);
-
-            if ($user->avatar) {
-                Storage::delete('public/users/' . $user->avatar);
-            }
-
-            $user->avatar = $avatarName;
-        }
-
-        $user->update([
-            'name' => $request->name,
-            'email' => $request->email,
-            'avatar' => isset($avatarName) ? $avatarName : $user->avatar,
-        ]);
-
-        $notification = array(
-            'message' => "User profile has been updated !!!",
-            'alert-type' => 'success'
-        );
-
-        return back()->with($notification);
-    }
-
-    public function updatePassword(Request $request)
-    {
-        $this->validate($request,[
-            'old_password'=>'required',
-            'password'=>'required|max:200|confirmed',
-        ]);
-
-        if (password_verify($request->old_password,auth()->user()->password)){
-            auth()->user()->update(['password'=>Hash::make($request->password)]);
-            $notification = array(
-                'message'=>"User password updated successfully!!!",
-                'alert-type'=>'success'
-            );
-            $logout = auth()->logout();
-            return back()->with($notification,$logout);
-        }else{
-            $notification = array(
-                'message'=>"Old Password do not match!!!",
-                'alert-type'=>'danger'
-            );
-            return back()->with($notification);
-        }
+        // Mengambil semua pengguna
+        $users = User::all();
+        return response()->json($users);
     }
 
     public function show($id)
     {
-        //
-    }
-
-    public function update(Request $request)
-    {
-        $this->validate($request,[
-            'name'=>'required|max:100',
-            'email'=>'required|email',
-            'password'=>'required|confirmed|max:200',
-        ]);
-        $user = User::find($request->id);
-        $user->update([
-            'name'=>$request->name,
-            'email'=>$request->email,
-            'password'=>Hash::make($request->password),
-        ]);
-        $user->assignRole($request->role);
-        $notification =array(
-            'message'=>"User has been updated!!!",
-            'alert-type'=>'success'
-        );
-        return back()->with($notification);
-    }
-
-    public function destroy(Request $request)
-    {
-        $user = User::find($request->id);
-        if($user->hasRole('super-admin')){
-            $notification=array(
-                'message'=>"Super admin cannot be deleted",
-                'alert-type'=>'warning',
-            );
-            return back()->with($notification);
+        // Menampilkan pengguna berdasarkan ID
+        $user = User::find($id);
+        
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
         }
+
+        return response()->json($user);
+    }
+
+    public function store(Request $request)
+    {
+        // Validasi input
+        $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users',
+            'password' => 'required|string|min:8|confirmed',
+        ]);
+
+        // Membuat pengguna baru
+        $user = User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => bcrypt($request->password), // Password di-hash
+        ]);
+
+        return response()->json(['message' => 'User created successfully!', 'user' => $user], 201);
+    }
+
+    public function update(Request $request, $id)
+    {
+        // Validasi input
+        $request->validate([
+            'name' => 'sometimes|required|string|max:255',
+            'email' => 'sometimes|required|string|email|max:255|unique:users,email,'.$id,
+            'password' => 'sometimes|required|string|min:8|confirmed',
+        ]);
+
+        // Mencari pengguna
+        $user = User::find($id);
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        // Update pengguna
+        $user->name = $request->input('name', $user->name);
+        $user->email = $request->input('email', $user->email);
+        if ($request->filled('password')) {
+            $user->password = bcrypt($request->password); // Update password
+        }
+        $user->save();
+
+        return response()->json(['message' => 'User updated successfully!', 'user' => $user]);
+    }
+
+    public function destroy($id)
+    {
+        // Mencari pengguna
+        $user = User::find($id);
+        if (!$user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+
+        // Menghapus pengguna
         $user->delete();
-        $notification=array(
-            'message'=>"User has been deleted",
-            'alert-type'=>'success',
-        );
-        return back()->with($notification);
+        return response()->json(['message' => 'User deleted successfully']);
     }
 }

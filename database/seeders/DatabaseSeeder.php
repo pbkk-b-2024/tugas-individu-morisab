@@ -2,28 +2,21 @@
 
 namespace Database\Seeders;
 
-use App\Models\Product;
 use Illuminate\Database\Seeder;
-use Database\Seeders\UserSeeder;
-use Database\Seeders\RolesAndPermissionsSeeder;
 
 class DatabaseSeeder extends Seeder
 {
-    /**
-     * Seed the application's database.
-     *
-     * @return void
-     */
     public function run()
     {
         $this->call([
-            RolesAndPermissionsSeeder::class,
             UserSeeder::class,
-            SuppliersSeeder::class,
-            CategoriesSeeder::class,
-            PurchasesSeeder::class,
-            ProductsSeeder::class,
+            EmployeeSeeder::class,
+            MenuItemSeeder::class,
+            OrderSeeder::class,
+            OrderItemSeeder::class,
+            PaymentSeeder::class,
+            ReviewSeeder::class,
+            LoyaltyProgramSeeder::class,
         ]);
-        // \App\Models\User::factory(10)->create();
     }
 }
